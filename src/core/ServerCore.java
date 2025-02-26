@@ -7,15 +7,16 @@ import java.util.ArrayList;
 import java.util.Map;
 
 import CustomThreadPool.TaskNotProcessedException;
+import connection_processors.Connection;
+import connection_processors.ConnectionProcessor;
 import events.Event;
 import events.EventProcessor;
 import events.EventsManager;
 import middleware_chain.Middleware;
 import middleware_chain.MiddlewareChain;
-import request_proccesors.Connection;
-import request_proccesors.RequestProcessor;
 import resources.ResourceFetcher;
 import resources.ResourceManager;
+import utilities.UtilityTemplate;
 import utilities.Logging.CommonLogLevels;
 import utilities.Logging.Logger;
 
@@ -26,15 +27,15 @@ public class ServerCore implements Runnable{
 	private final EventsManager eventsManager;
 	private final ResourceManager resourceManager;
 	private final MiddlewareChain middlewareChain;
-	private ArrayList<RequestProcessor> reqProcs;
+	private ArrayList<ConnectionProcessor> reqProcs;
 	public ServerCore() {
 		this.eventsManager = new EventsManager(this);
 		this.resourceManager = new ResourceManager(this);
 		this.middlewareChain = new MiddlewareChain();
 	}
 	public void init() {
-		for(RequestProcessor proc: this.reqProcs) {
-			proc.coreRequestPort = (Connection req) -> {this.acceptRequest(req);};
+		for(ConnectionProcessor proc: this.reqProcs) {
+			proc.coreConnectionsPort = (Connection req) -> {this.acceptRequest(req);};
 			proc.init(this);
 			Thread t = new Thread(proc);
 			t.start();
@@ -71,13 +72,16 @@ public class ServerCore implements Runnable{
 			eventsManager.addEventProccesor(e);
 		}
 		for(Middleware m: f.getMiddlewares()) {
-			middlewareChain.chain.add(m);
+			middlewareChain.addMiddleware(m);
 		}
-		for(RequestProcessor r: f.getRequestProcessors()) {
+		for(ConnectionProcessor r: f.getConnectionProcessors()) {
 			this.reqProcs.add(r);
 		}
 		for(ResourceFetcher rF: f.getResourceFetchers()) {
 			this.resourceManager.addResourceFetcher(rF);
+		}
+		for(UtilityTemplate u: f.getUtilities()) {
+			u.start();
 		}
 	}
 	
